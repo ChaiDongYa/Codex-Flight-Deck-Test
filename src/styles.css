@@ -75,6 +75,19 @@ h1 {
   box-shadow: 0 0 0 4px rgb(86 216 148 / 12%);
 }
 
+.page-link {
+  display: inline-block;
+  margin-top: 24px;
+  color: #6fcbff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.page-link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 480px) {
   .welcome-card {
     padding: 40px 28px;
