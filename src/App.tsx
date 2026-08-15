@@ -7,8 +7,16 @@ type TaskMember = {
   id: number
   name: string
   gender: Gender
-  age: number
+  age: string | number
 }
+
+type MemberForm = {
+  name: string
+  gender: Gender | ''
+  age: string
+}
+
+type FormErrors = Partial<Record<keyof MemberForm, boolean>>
 
 const PAGE_SIZE = 5
 
@@ -45,6 +53,9 @@ const TaskListPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [members, setMembers] = useState(taskMembers)
   const [selectedMember, setSelectedMember] = useState<TaskMember | null>(null)
+  const [editingMember, setEditingMember] = useState<TaskMember | null | undefined>(undefined)
+  const [memberForm, setMemberForm] = useState<MemberForm>({ name: '', gender: '', age: '' })
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
 
   const filteredMembers = useMemo(() => {
     const normalizedName = query.name.trim()
@@ -96,6 +107,63 @@ const TaskListPage: React.FC = () => {
     }
   }
 
+  const openCreateForm = () => {
+    setMemberForm({ name: '', gender: '', age: '' })
+    setFormErrors({})
+    setEditingMember(null)
+  }
+
+  const openEditForm = (member: TaskMember) => {
+    setMemberForm({ name: member.name, gender: member.gender, age: String(member.age) })
+    setFormErrors({})
+    setSelectedMember(null)
+    setEditingMember(member)
+  }
+
+  const closeMemberForm = () => {
+    setEditingMember(undefined)
+    setFormErrors({})
+  }
+
+  const updateFormField = <Field extends keyof MemberForm>(field: Field, value: MemberForm[Field]) => {
+    setMemberForm((form) => ({ ...form, [field]: value }))
+    setFormErrors((errors) => ({ ...errors, [field]: false }))
+  }
+
+  const handleMemberSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const errors: FormErrors = {
+      name: !memberForm.name,
+      gender: !memberForm.gender,
+      age: !memberForm.age,
+    }
+
+    if (Object.values(errors).some(Boolean)) {
+      setFormErrors(errors)
+      return
+    }
+
+    if (editingMember) {
+      setMembers((currentMembers) =>
+        currentMembers.map((member) =>
+          member.id === editingMember.id ? { ...member, ...memberForm, gender: memberForm.gender as Gender } : member,
+        ),
+      )
+    } else {
+      const nextMember: TaskMember = {
+        id: Math.max(0, ...members.map((member) => member.id)) + 1,
+        ...memberForm,
+        gender: memberForm.gender as Gender,
+      }
+
+      setMembers((currentMembers) => [nextMember, ...currentMembers])
+      handleReset()
+    }
+
+    closeMemberForm()
+  }
+
   return (
     <main className="task-page">
       <section className="task-panel" aria-labelledby="task-list-title">
@@ -105,7 +173,10 @@ const TaskListPage: React.FC = () => {
             <h1 id="task-list-title">任务列表</h1>
             <p className="task-description">浏览并筛选当前任务成员信息</p>
           </div>
-          <a className="text-link" href="/about">关于我</a>
+          <div className="header-actions">
+            <button onClick={openCreateForm} type="button">新增成员</button>
+            <a className="text-link" href="/about">关于我</a>
+          </div>
         </header>
 
         <form className="search-form" onSubmit={handleSearch}>
@@ -161,6 +232,13 @@ const TaskListPage: React.FC = () => {
                           type="button"
                         >
                           查看详情
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => openEditForm(member)}
+                          type="button"
+                        >
+                          编辑
                         </button>
                         <button
                           className="text-button danger-button"
@@ -255,6 +333,67 @@ const TaskListPage: React.FC = () => {
             <div className="dialog-actions">
               <button onClick={() => setSelectedMember(null)} type="button">关闭</button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {editingMember !== undefined && (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            aria-labelledby="member-form-title"
+            aria-modal="true"
+            className="detail-dialog member-form-dialog"
+            role="dialog"
+          >
+            <div className="dialog-header">
+              <h2 id="member-form-title">{editingMember ? '编辑成员' : '新增成员'}</h2>
+              <button aria-label="关闭表单" className="close-button" onClick={closeMemberForm} type="button">
+                ×
+              </button>
+            </div>
+            <form className="member-form" noValidate onSubmit={handleMemberSubmit}>
+              <label>
+                姓名
+                <input
+                  aria-describedby={formErrors.name ? 'name-error' : undefined}
+                  aria-invalid={formErrors.name || undefined}
+                  onChange={(event) => updateFormField('name', event.target.value)}
+                  required
+                  value={memberForm.name}
+                />
+                {formErrors.name && <span className="field-error" id="name-error">姓名为必填项</span>}
+              </label>
+              <label>
+                性别
+                <select
+                  aria-describedby={formErrors.gender ? 'gender-error' : undefined}
+                  aria-invalid={formErrors.gender || undefined}
+                  onChange={(event) => updateFormField('gender', event.target.value as Gender | '')}
+                  required
+                  value={memberForm.gender}
+                >
+                  <option value="">请选择性别</option>
+                  <option value="男">男</option>
+                  <option value="女">女</option>
+                </select>
+                {formErrors.gender && <span className="field-error" id="gender-error">性别为必填项</span>}
+              </label>
+              <label>
+                年龄
+                <input
+                  aria-describedby={formErrors.age ? 'age-error' : undefined}
+                  aria-invalid={formErrors.age || undefined}
+                  onChange={(event) => updateFormField('age', event.target.value)}
+                  required
+                  value={memberForm.age}
+                />
+                {formErrors.age && <span className="field-error" id="age-error">年龄为必填项</span>}
+              </label>
+              <div className="dialog-actions">
+                <button className="secondary-button" onClick={closeMemberForm} type="button">取消</button>
+                <button type="submit">提交</button>
+              </div>
+            </form>
           </section>
         </div>
       )}
