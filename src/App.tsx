@@ -43,16 +43,18 @@ const TaskListPage: React.FC = () => {
   const [genderInput, setGenderInput] = useState<Gender | ''>('')
   const [query, setQuery] = useState({ name: '', gender: '' as Gender | '' })
   const [currentPage, setCurrentPage] = useState(1)
+  const [members, setMembers] = useState(taskMembers)
+  const [selectedMember, setSelectedMember] = useState<TaskMember | null>(null)
 
   const filteredMembers = useMemo(() => {
     const normalizedName = query.name.trim()
 
-    return taskMembers.filter(
+    return members.filter(
       (member) =>
         (!normalizedName || member.name.includes(normalizedName)) &&
         (!query.gender || member.gender === query.gender),
     )
-  }, [query])
+  }, [members, query])
 
   const pageCount = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE))
   const visibleMembers = filteredMembers.slice(
@@ -71,6 +73,27 @@ const TaskListPage: React.FC = () => {
     setGenderInput('')
     setQuery({ name: '', gender: '' })
     setCurrentPage(1)
+  }
+
+  const handleDelete = (memberId: number) => {
+    const remainingMembers = members.filter((member) => member.id !== memberId)
+    const normalizedName = query.name.trim()
+    const remainingFilteredMembers = remainingMembers.filter(
+      (member) =>
+        (!normalizedName || member.name.includes(normalizedName)) &&
+        (!query.gender || member.gender === query.gender),
+    )
+    const remainingCurrentPageMembers = remainingFilteredMembers.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE,
+    )
+
+    setMembers(remainingMembers)
+    setSelectedMember((member) => (member?.id === memberId ? null : member))
+
+    if (remainingCurrentPageMembers.length === 0 && currentPage > 1) {
+      setCurrentPage((page) => page - 1)
+    }
   }
 
   return (
@@ -120,6 +143,7 @@ const TaskListPage: React.FC = () => {
                 <th scope="col">姓名</th>
                 <th scope="col">性别</th>
                 <th scope="col">年龄</th>
+                <th scope="col">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -129,11 +153,29 @@ const TaskListPage: React.FC = () => {
                     <td>{member.name}</td>
                     <td>{member.gender}</td>
                     <td>{member.age}</td>
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          className="text-button"
+                          onClick={() => setSelectedMember(member)}
+                          type="button"
+                        >
+                          查看详情
+                        </button>
+                        <button
+                          className="text-button danger-button"
+                          onClick={() => handleDelete(member.id)}
+                          type="button"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="empty-state" colSpan={3}>暂无匹配的数据</td>
+                  <td className="empty-state" colSpan={4}>暂无匹配的数据</td>
                 </tr>
               )}
             </tbody>
@@ -176,6 +218,46 @@ const TaskListPage: React.FC = () => {
           </div>
         </footer>
       </section>
+
+      {selectedMember && (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            aria-labelledby="member-detail-title"
+            aria-modal="true"
+            className="detail-dialog"
+            role="dialog"
+          >
+            <div className="dialog-header">
+              <h2 id="member-detail-title">成员详情</h2>
+              <button
+                aria-label="关闭详情"
+                className="close-button"
+                onClick={() => setSelectedMember(null)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <dl className="member-details">
+              <div>
+                <dt>姓名</dt>
+                <dd>{selectedMember.name}</dd>
+              </div>
+              <div>
+                <dt>性别</dt>
+                <dd>{selectedMember.gender}</dd>
+              </div>
+              <div>
+                <dt>年龄</dt>
+                <dd>{selectedMember.age}</dd>
+              </div>
+            </dl>
+            <div className="dialog-actions">
+              <button onClick={() => setSelectedMember(null)} type="button">关闭</button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }
